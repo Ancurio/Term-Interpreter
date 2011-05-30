@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+
 /* ----- Stacks! ------------------------------------------ */
 
 struct node
@@ -63,6 +64,8 @@ void stack_destroy(struct stack *lstack)
 }
 
 /* -------------------------------------------------------- */
+
+
 
 
 int main {}
