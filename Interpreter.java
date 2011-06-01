@@ -18,6 +18,7 @@ public class Interpreter
     private int nest_level = 0;  /** has to be 0 again after parsing, else the error flag is set */
     private boolean frac_flag = false; /** (internal) indicates following digits will be processed as fractals */
     private byte error_type = 0; 
+    private byte frac_point = 0;
     
     public Interpreter()
     {
@@ -40,7 +41,6 @@ public class Interpreter
         int i = 0;
         int local_nest_level = 0;
         byte last_p = 0;  /** priority of last parsed operator */
-        byte frac_point = 0;
         boolean coef_flag = false;  /** set if value might preceed a bracket and thus become a coefficient */
         boolean func_flag = false;  /** set if result of next bracket is to be passed as an argument to function <symbol> */
         boolean nest_flag = false;  /** indicates characters are being collected and not parsed */
@@ -105,12 +105,11 @@ public class Interpreter
             
                 else if (isNumber(args[i]))  /** parse number */
                 {
+					digits.push(to_i(args[i]));
                     if (frac_flag) {frac_point -= 1;}
                     /** check if there is more than one digit or fractal part */
-                    if (isNumber(char_at(arg, i+1)) || char_at(arg, i+1) == '.' || char_at(arg, i+1) == ',') {digits.push(to_i(args[i]));}
-                    else
+                    if (!(isNumber(char_at(arg, i+1)) || char_at(arg, i+1) == '.' || char_at(arg, i+1) == ','))
                     {
-                        digits.push(to_i(args[i]));
                         if (coef_flag) {operators.push('*'); last_p = priority('*');}
                         arguments.push(join_digits(frac_point));
                         neg_flag = false; coef_flag = true; frac_flag = false; frac_point = 0;
@@ -139,6 +138,7 @@ public class Interpreter
                 else if (isLetter(args[i])) /** parse letters */
                 {
 					if (coef_flag) {coef_flag = false; operators.push('*'); last_p = priority('*');}
+					if (neg_flag) {neg_flag = false;}
 					symbol = symbol.concat(to_s(args[i]));
                     if (char_at(arg,i+1) == '(')
                     {
