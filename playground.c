@@ -199,22 +199,22 @@ double join_digits(struct stack *digits, int frac_point)
 double compute_function(char *f_name, double arg, struct global_vars *gvars)
 {
 	if (gvars->debug) {printf("call: compute_function f_name=%s arg=%f\n", f_name, arg);}
-	
+
 		 //if (f_name.equals("foo"))        {return arg;}
 	     if (!strcmp(f_name, "foo"))		{return arg;}
 	//else if (f_name.equals("square"))     {return arg*arg;}
 	else if (!strcmp(f_name, "square"))		{return arg*arg;}
-	
+
 	else {gvars->error_type = 2; return 0;}
 }
 
 double lookup_constant(char *c_name, struct global_vars *gvars)
 {
 	if (gvars->debug) {printf("call: lookup_constant c_name=%s\n", c_name);}
-	
+
 	     if (!strcmp(c_name, "four"))	{return 4;}
 	else if (!strcmp(c_name, "pi"))		{return M_PI;}
-	
+
 	else {gvars->error_type = 2; return 0;}
 }
 
@@ -225,12 +225,12 @@ double _parse(char *args, struct global_vars *gvars)
 	struct stack *arguments = stack_init();
 	struct stack *operators = stack_init();
 	//struct stack *digits = stack_init();
-    
+
     int nest_level = 0;
-    
+
 	int i = 0;
 	int local_nest_level = 0;
-	
+
 	short last_p = 0;  /** priority of last parsed operator */
 	short coef_flag = FALSE;  /** set if value might preceed a bracket and thus become a coefficient */
 	short func_flag = FALSE;  /** set if result of next bracket is to be passed as an argument to function <symbol> */
@@ -238,17 +238,17 @@ double _parse(char *args, struct global_vars *gvars)
 	short nest_init_flag = FALSE;  /** necessary to skip first character '(' during string collection */
 	short neg_flag = TRUE;  /** set if next '-' will make number signed and not be an operator */
 	short frac_flag = FALSE;
-	
+
 	char nested_term[100] = { 0 }; /** collector string for contents of nested term */
 	char symbol[100] = { 0 }; /** collector string for symbol name */
-	
-	
+
+
 	//char[] args = arg.toCharArray(); /** map out String to pure char array */
 	for (i=0; i < string_length(args); i++)
 	{
-		
+
 		if (nest_init_flag) {nest_init_flag = FALSE;}
-		
+
 		/** lock computing by raising nest level, substitute '*' if coefficient exists */
 		if (args[i] == '(')
 		{
@@ -266,7 +266,7 @@ double _parse(char *args, struct global_vars *gvars)
 				local_nest_level += 1;
 			}
 		}
-		
+
 		else if (args[i] == ')')
 		{
 			if (nest_flag && local_nest_level == 0) /** nesting has reached end */
@@ -291,21 +291,21 @@ double _parse(char *args, struct global_vars *gvars)
 				local_nest_level -= 1;
 			}
 		}
-		
-		
+
+
 		if (!nest_flag)
 		{
-			
+
 			if (args[i] == '.' || args[i] == ',')
 			{
 				if (isdigit(char_at(args,i+1))) {frac_flag = TRUE;}
 				else {gvars->error_type = 3; return 0;}
 			}
-		
+
 			else if (isdigit(args[i]))  /** parse number */
 			{
 				if (gvars->debug) {printf("args[%d] is digit\n", i);}
-				
+
 				stack_push(gvars->digits, to_i(args[i]));
 				if (frac_flag) {gvars->frac_point -= 1;}
 				/** check if there is more than one digit or fractal part */
@@ -318,16 +318,16 @@ double _parse(char *args, struct global_vars *gvars)
 					neg_flag = FALSE; coef_flag = TRUE; frac_flag = FALSE; gvars->frac_point = 0;
 				}
 			}
-		
+
 			else if (isoperator(args[i]))  /** parse operators */
 			{
 				if (gvars->debug) {printf("args[%d] is operator\n", i);}
-				
+
 				if (neg_flag && args[i] == '-')  /** check if preceeding minus changes sign of next symbol */
 				{
 					neg_flag = FALSE;
 					//+arguments.push(-1.0); operators.push('*'); last_p = priority('*');
-					stack_push(arguments, -1.0); stack_push(operators, '*'); last_p = priority('*'); 
+					stack_push(arguments, -1.0); stack_push(operators, '*'); last_p = priority('*');
 				}
 				else
 				{
@@ -342,11 +342,11 @@ double _parse(char *args, struct global_vars *gvars)
 					neg_flag = TRUE;
 				}
 			}
-			
+
 			else if (isalpha(args[i])) /** parse letters */
 			{
 				if (gvars->debug) {printf("args[%d] is letter\n", i);}
-				
+
 				//+if (coef_flag) {coef_flag = FALSE; operators.push('*'); last_p = priority('*');}
 				if (coef_flag) {coef_flag = FALSE; stack_push(operators, '*'); last_p = priority('*');}
 				if (neg_flag) {neg_flag = FALSE;}
@@ -375,35 +375,35 @@ double _parse(char *args, struct global_vars *gvars)
 					coef_flag = TRUE;
 				}
 			}
-		
+
 		}
-		
+
 		else if (!nest_init_flag) /** this collector block needs to be skipped once so the first '(' isn't collected */
 		{
 			//+Character ch = args[i];
 			//+nested_term = nested_term.concat(ch.toString());
 			string_concat(nested_term, args[i]);
 		}
-		
+
 		if (args[i] == ' ') {coef_flag = FALSE;}
-		
+
 		if (char_at(args,i) == '#') {break;}  /** failsafe, in case array bounds are left */
 	}
 	if (gvars->debug)
 		{printf("<args>\n");stack_dump(arguments);printf("<ops>\n");stack_dump(operators);printf("<>\n");}
-	
+
 	if ((gvars->nest_level != 0 || local_nest_level != 0) && gvars->error_type == 0) {gvars->error_type = 1;}
 	if (neg_flag && gvars->error_type == 0) {gvars->error_type = 4;printf("no1<%d>\n",neg_flag);}
 	if (gvars->error_type == 0) {compute(arguments, operators, gvars);}
 	//+if (arguments.length() > 1 && error_type == 0) {error_type = 4;}
 	if (stack_length(arguments) > 1 && gvars->error_type == 0) {gvars->error_type = 4;printf("no2\n");}
 	//+if (error_type == 0) {return (Double)arguments.top();}
-	
+
 	double return_value = 0;
 	if (gvars->error_type == 0) {return_value = stack_pop(arguments);}
 	stack_destroy(arguments);
 	stack_destroy(operators);
-	
+
 	return return_value;
 }
 
@@ -415,7 +415,7 @@ double parse(char *args, short *_error_type, short _debug)
 	gvars->frac_point = 0;
 	gvars->error_type = 0;
 	gvars->debug = _debug;
-	
+
 	double results = _parse(args, gvars);
 	*_error_type = gvars->error_type;
 	stack_destroy(gvars->digits);
