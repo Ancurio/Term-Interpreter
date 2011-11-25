@@ -105,7 +105,7 @@ void compute(struct stack *arguments, struct stack *operators, struct global_var
 		gchar op; stack_pop(operators, &op);
 		gdouble calc_results = calculate(a, b, op);
 		stack_push(arguments, &calc_results);
-		g_print("Calc: %f %c %f = %f\n", a, op, b, calc_results);
+		if (gvars->debug) {g_print("Calc: %f %c %f = %f\n", a, op, b, calc_results);}
 	}
 }
 
