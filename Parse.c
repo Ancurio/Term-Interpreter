@@ -29,6 +29,11 @@
 #include "Utility.h"
 
 
+void flag_changed(gboolean flag, char *s)
+{
+	g_print("Flag set to %d in %s\n", flag, s);
+}
+
 
 double _parse(gchar *args, struct global_vars *gvars)
 {
@@ -48,7 +53,7 @@ double _parse(gchar *args, struct global_vars *gvars)
 	gboolean func_flag = FALSE;  /** set if result of next bracket is to be passed as an argument to function <symbol> */
 	gboolean nest_flag = FALSE;  /** indicates characters are being collected and not parsed */
 	gboolean nest_init_flag = FALSE;  /** necessary to skip first character '(' during string collection */
-	gboolean neg_flag = TRUE;  /** set if next '-' will make number signed and not be an operator */
+	gboolean value_flag = FALSE; /** indicates previously parsed value as opposed to an operator */
 	gboolean frac_flag = FALSE;
 	
 	gboolean no_input_flag = FALSE;
@@ -85,14 +90,15 @@ double _parse(gchar *args, struct global_vars *gvars)
 			{
 				if (nest_flag && local_nest_level == 0) /** nesting has reached end */
 				{
-					nest_flag = FALSE; neg_flag = FALSE;
+					nest_flag = FALSE; value_flag = TRUE;
 					gdouble nested_term_result = _parse(nested_term->str, gvars);
 					gvars->nest_level -= 1;
 					g_string_free(nested_term, TRUE);
 					nested_term = g_string_new("\0");
 					if (func_flag)
 					{
-						gdouble compute_function_results = compute_function(symbol->str, nested_term_result, gvars);
+						gdouble compute_function_results =
+							compute_function(symbol->str, nested_term_result, gvars);
 						stack_push(arguments, &compute_function_results);
 						func_flag = FALSE;
 						g_string_free(symbol, TRUE);
@@ -130,7 +136,7 @@ double _parse(gchar *args, struct global_vars *gvars)
 						if (coef_flag) {stack_push(operators, "*"); last_p = priority('*');}
 						gdouble joined_dig =  join_digits(gvars->digits, gvars->frac_point);
 						stack_push(arguments, &joined_dig);
-						neg_flag = FALSE; coef_flag = TRUE; frac_flag = FALSE; gvars->frac_point = 0;
+						coef_flag = TRUE; frac_flag = FALSE; value_flag = TRUE; gvars->frac_point = 0;
 					}
 				}
 	
@@ -139,10 +145,17 @@ double _parse(gchar *args, struct global_vars *gvars)
 					if (gvars->debug)
 						{for (j=0;j<gvars->nest_level;j++) {g_printf("   ");} g_printf("args[%d] is operator\n", i);}
 	
-					if (neg_flag && args[i] == '-')  /** check if preceeding minus changes sign of next symbol */
+					if (args[i] == '-')  /** check if preceeding minus changes sign of next symbol */
 					{
-						neg_flag = FALSE;
-						stack_push(arguments, &minus_one); stack_push(operators, "*"); last_p = priority('*');
+						if (value_flag)
+						{
+							compute(arguments, operators, gvars);
+							stack_push(operators, "+");
+						}
+						stack_push(arguments, &minus_one);
+						stack_push(operators, "*"); last_p = priority('*');
+						
+						coef_flag = FALSE;
 					}
 					else
 					{
@@ -151,9 +164,9 @@ double _parse(gchar *args, struct global_vars *gvars)
 						if (priority(args[i]) < last_p) {compute(arguments, operators, gvars);}
 						last_p = priority(args[i]);
 						stack_push(operators, &args[i]);
-						if (args[i] == '!') {stack_push(arguments, &null); neg_flag = FALSE;}  // dummy zero to avoid complications due to missing second args for faculty
-						else {neg_flag = TRUE;}
+						if (args[i] == '!') {stack_push(arguments, &null);}  // dummy zero to avoid complications due to missing second args for faculty
 						coef_flag = FALSE;
+						value_flag = FALSE;
 					}
 				}
 	
@@ -163,7 +176,6 @@ double _parse(gchar *args, struct global_vars *gvars)
 						{for (j=0;j<gvars->nest_level;j++) {g_printf("   ");} printf("args[%d] is letter\n", i);}
 	
 					if (coef_flag) {coef_flag = FALSE; stack_push(operators, "*"); last_p = priority('*');}
-					if (neg_flag) {neg_flag = FALSE;}
 					g_string_append_c(symbol, args[i]);
 					if (char_at(args,i+1) == '(')
 					{
@@ -173,10 +185,10 @@ double _parse(gchar *args, struct global_vars *gvars)
 							gvars->error_type = 0;
 							gdouble looked_up_c = lookup_constant(symbol->str, gvars);
 							stack_push(arguments, &looked_up_c);
-							//+symbol = "";
 							g_string_free(symbol, TRUE);
 							symbol = g_string_new("\0");
 							coef_flag = TRUE;
+							value_flag = TRUE;
 						}
 						else {func_flag = TRUE;}
 					}
@@ -187,6 +199,7 @@ double _parse(gchar *args, struct global_vars *gvars)
 						g_string_free(symbol, TRUE);
 						symbol = g_string_new("\0");
 						coef_flag = TRUE;
+						value_flag = TRUE;
 					}
 				}
 	
@@ -207,7 +220,6 @@ double _parse(gchar *args, struct global_vars *gvars)
 		printf("errors so far: %d\n", gvars->error_type);}
 
 	if (local_nest_level != 0 && gvars->error_type == 0) {gvars->error_type = 1;}
-	if (neg_flag && stack_length(operators) != 0 && gvars->error_type == 0) {gvars->error_type = 4;printf("Yep.\n");}
 	if (!no_input_flag && gvars->error_type == 0) {compute(arguments, operators, gvars);}
 	if (stack_length(arguments) > 1 && gvars->error_type == 0) {gvars->error_type = 4;}
 
@@ -237,5 +249,8 @@ gdouble parse_term(const gchar *args, gint8 *_error_type, gboolean _debug)
 	g_free(args_temp);
 	stack_destroy(gvars->digits);
 	g_free(gvars);
+	
+	if (_debug)
+		{g_print("---------\n---------\n\n");}
 	return results;
 }
